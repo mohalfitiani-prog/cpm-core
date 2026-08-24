@@ -1,0 +1,6 @@
+{
+  "name": "CPMCARE",
+  "description": "Construction Project Delivery Management System (CPDMS) is a cloud-based SaaS platform for managing construction project execution, work delivery, approvals, and collaboration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
