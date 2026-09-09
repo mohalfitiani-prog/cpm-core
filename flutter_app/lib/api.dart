@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -35,6 +37,7 @@ class Api {
     bool camera = false,
     bool image = false,
     bool logo = false,
+    BuildContext? context,
   }) async {
     List<int>? bytes;
     String? mime;
@@ -50,14 +53,13 @@ class Api {
           ? 'image/png'
           : 'image/jpeg';
     } else {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: logo ? ['png'] : ['pdf', 'png', 'jpg', 'jpeg'],
-        withData: true,
       );
       if (result == null) return null;
-      final f = result.files.single;
-      bytes = f.bytes;
+      final f = result;
+      bytes = await f.readAsBytes();
       mime = f.extension == 'pdf'
           ? 'application/pdf'
           : f.extension == 'png'
@@ -66,6 +68,12 @@ class Api {
     }
     if (bytes == null) throw Exception('تعذر قراءة الملف');
     if (bytes.length > 5 * 1024 * 1024) throw Exception('حجم الملف يتجاوز 5MB');
+    if ((camera || image) && context != null) {
+      if (!context.mounted) return null;
+      final previewBytes=Uint8List.fromList(bytes);
+      final approved=await showDialog<bool>(context:context,builder:(c)=>AlertDialog(title:const Text('معاينة الصورة'),content:Image.memory(previewBytes,height:280,fit:BoxFit.contain),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('إلغاء')),FilledButton(onPressed:()=>Navigator.pop(c,true),child:const Text('استخدام الصورة'))]));
+      if(approved!=true)return null;
+    }
     final r = await call('uploadFile', {
       'entityId': entity,
       'officeLogo': logo,

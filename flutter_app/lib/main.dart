@@ -493,16 +493,13 @@ class _DashboardState extends State<Dashboard> {
                         label: const Text('إضافة شعار PNG'),
                       ),
                       if (office['logo'] != null)
-                        TextButton(
-                          onPressed: () => Api.open(office['logo']),
-                          child: const Text('عرض شعار المكتب'),
-                        ),
+                        OfficeLogo(path: office['logo']),
                       ExpansionTile(
                         title: const Text('معلومات المكتب'),
                         children: [
                           ListTile(
                             title: Text(
-                              office['active'] == true
+                              office['active'] == true && (office['expiresAt'] as num) > DateTime.now().millisecondsSinceEpoch
                                   ? 'الاشتراك فعّال'
                                   : 'الاشتراك غير فعّال — تواصل مع الإدارة',
                             ),
@@ -515,6 +512,10 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             const SizedBox(height: 20),
+            Row(children: [
+              Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(18), child: Text('طلبات RFI دون رد\n${projects.fold<int>(0, (n,p) => n + ((p['unanswered'] ?? 0) as num).toInt())}', textAlign: TextAlign.center)))),
+              Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(18), child: Text('تسليمات بانتظار الاعتماد\n${projects.fold<int>(0, (n,p) => n + ((p['pending'] ?? 0) as num).toInt())}', textAlign: TextAlign.center)))),
+            ]),
             Row(
               children: [
                 Expanded(
@@ -680,4 +681,16 @@ class _VerifyPhonePageState extends State<VerifyPhonePage> {
       ],
     ),
   );
+}
+
+class OfficeLogo extends StatefulWidget {
+  final String path;
+  const OfficeLogo({super.key, required this.path});
+  @override State<OfficeLogo> createState() => _OfficeLogoState();
+}
+class _OfficeLogoState extends State<OfficeLogo> {
+  late Future<Json> image;
+  @override void initState() {super.initState(); image=Api.call('readFile', {'path':widget.path});}
+  @override void didUpdateWidget(OfficeLogo old) {super.didUpdateWidget(old); if(old.path!=widget.path) image=Api.call('readFile', {'path':widget.path});}
+  @override Widget build(BuildContext context) => FutureBuilder<Json>(future:image,builder:(c,s) => s.hasData ? Image.network(s.data!['url'],height:140,fit:BoxFit.contain,errorBuilder:(c,e,t)=>const Text('تعذر عرض الشعار')) : const SizedBox(height:100,child:Center(child:Icon(Icons.apartment,size:48))));
 }

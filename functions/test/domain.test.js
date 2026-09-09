@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {mutate,join,projectView} from '../domain.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {mutate,join,projectView,readablePaths} from '../domain.js';
 const fixture=()=>({id:'p',members:[{uid:'o',role:'office'},{uid:'e',role:'residentEngineer'},{uid:'c',role:'contractor'},{uid:'w',role:'owner'}],stages:[{id:'s',items:[{id:'i',status:'notStarted',deliveries:[]}]}],rfi:[],ncr:[],files:[],minutes:[]});
 test('outsiders cannot read or mutate project',()=>{assert.throws(()=>projectView(fixture(),'x'));assert.throws(()=>mutate(fixture(),'x','item',{}));});
 test('resident engineer can review but cannot remove members',()=>{let p=fixture();assert.throws(()=>mutate(p,'e','removeMember',{uid:'c'}));mutate(p,'c','deliver',{stageId:'s',itemId:'i',photo:'projects/p/c/a',description:'done'});mutate(p,'e','reviewDelivery',{stageId:'s',itemId:'i',status:'approved',note:'ok'});assert.equal(p.stages[0].items[0].status,'approved');});
@@ -10,3 +10,11 @@ test('pending files are private until approved',()=>{let p=fixture();mutate(p,'c
 test('join enforces expiration, role limits and duplicate membership',()=>{let p=fixture();const inv={role:'owner',status:'active',expiresAt:100};assert.throws(()=>join(p,{uid:'z'},inv,1));assert.throws(()=>join(p,{uid:'c'}, {...inv,role:'contractor'},1));assert.throws(()=>join(p,{uid:'z'},{...inv,role:'contractor'},100));});
 test('delivery requires a photo from this project and author',()=>{assert.throws(()=>mutate(fixture(),'c','deliver',{stageId:'s',itemId:'i',photo:'projects/other/c/a',description:'done'}));});
 test('closed NCR cannot be changed',()=>{let p=fixture();mutate(p,'o','ncr',{description:'d',violation:'v',photo:'projects/p/o/a'});const id=p.ncr[0].id;mutate(p,'e','reviewNcr',{id,status:'closed',procedure:'fixed'});assert.throws(()=>mutate(p,'e','reviewNcr',{id,status:'approved',procedure:'edit'}));});
+
+test('a path injected into free text cannot grant access to unpublished files',()=>{
+ const p=fixture();
+ mutate(p,'c','file',{name:'private',path:'projects/p/c/private',category:'plans'});
+ p.description='projects/p/c/private';
+ assert.equal(readablePaths(projectView(p,'w')).has('projects/p/c/private'),false);
+ assert.equal(readablePaths(projectView(p,'c')).has('projects/p/c/private'),true);
+});

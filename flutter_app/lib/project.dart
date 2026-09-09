@@ -89,7 +89,7 @@ class _ProjectPageState extends State<ProjectPage> {
       ).then(
         (v) async => v == null
             ? null
-            : Api.upload(widget.id, camera: v == 'camera', image: true),
+            : Api.upload(widget.id, camera: v == 'camera', image: true, context: context),
       );
   String person(String id) => members.firstWhere(
     (m) => m['uid'] == id,
@@ -496,13 +496,21 @@ class _ProjectPageState extends State<ProjectPage> {
           'attendees': 'الحضور',
           'decisions': 'القرارات والمعلومات المتفق عليها',
         });
-        if (d != null) await action('minutes', d);
+        if(d==null)return;
+        await run(() async {
+          final attach=await showDialog<bool>(context:context,builder:(c)=>AlertDialog(title:const Text('إضافة مرفق للمحضر؟'),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('بدون مرفق')),FilledButton(onPressed:()=>Navigator.pop(c,true),child:const Text('اختيار ملف'))]));
+          if(attach==null)return;
+          final path=attach?await Api.upload(widget.id):null;
+          if(attach&&path==null)return;
+          await Api.call('projectAction',{'projectId':widget.id,'action':'minutes','payload':{...d,'attachment':path}});
+        });
       }),
       for (final r in project!['minutes'])
         card(r['title'], [
           Text('التاريخ: ${r['date']}'),
           Text('الحضور: ${r['attendees']}'),
           Text(r['decisions']),
+          if(r['attachment']!=null)button('مرفق المحضر',Icons.attach_file,()=>run(()=>Api.open(r['attachment']))),
           Chip(label: Text(statuses[r['status']] ?? r['status'])),
           moderation('minutes', r),
         ]),

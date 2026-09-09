@@ -43,3 +43,13 @@ export function join(p,user,invite,now=Date.now()){
  p.members.push({uid:user.uid,role:invite.role,name:user.name,phone:user.phone,address:user.address||'',start:new Date(now).toISOString().slice(0,10),end:''});
  return p;
 }
+
+export function readablePaths(view){
+ return new Set([
+  ...view.files.map(f=>f.path),
+  ...view.rfi.map(r=>r.photo),
+  ...view.ncr.map(n=>n.photo),
+  ...view.minutes.map(m=>m.attachment),
+  ...view.stages.flatMap(s=>s.items.flatMap(i=>i.deliveries.map(d=>d.photo)))
+ ].filter(Boolean));
+}

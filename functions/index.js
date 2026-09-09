@@ -5,7 +5,7 @@ import {getStorage} from 'firebase-admin/storage';
 import {onCall,HttpsError} from 'firebase-functions/v2/https';
 import {defineString} from 'firebase-functions/params';
 import {randomBytes,randomUUID,createHash} from 'node:crypto';
-import {assert,text,member,projectView,mutate,join} from './domain.js';
+import {assert,text,member,projectView,mutate,join,readablePaths} from './domain.js';
 initializeApp();
 const db=getFirestore(), auth=getAuth(), apiKey=defineString('FIREBASE_WEB_API_KEY');
 const call=fn=>onCall({region:'us-central1',maxInstances:10},async req=>{try{return await fn(req);}catch(e){if(e instanceof HttpsError)throw e;throw new HttpsError('failed-precondition',e.message||'تعذر تنفيذ الطلب');}});
@@ -65,8 +65,10 @@ export const uploadFile=call(async r=>{
 });
 export const readFile=call(async r=>{
  const id=uid(r),path=text(r.data.path,500),parts=path.split('/');assert(parts.length===4);
- if(parts[0]==='offices'){assert(parts[1]===id&&parts[2]===id);}else{assert(parts[0]==='projects');const p=(await db.doc(`projects/${parts[1]}`).get()).data();assert(p);const view=projectView(p,id);assert(JSON.stringify(view).includes(JSON.stringify(path)),'الملف غير متاح');}
+ if(parts[0]==='offices'){assert(parts[1]===id&&parts[2]===id);}else{assert(parts[0]==='projects');const p=(await db.doc(`projects/${parts[1]}`).get()).data();assert(p);const view=projectView(p,id);assert(readablePaths(view).has(path),'الملف غير متاح');}
  const [url]=await getStorage().bucket().file(path).getSignedUrl({action:'read',expires:Date.now()+5*60000});return {url};
 });
 // Subscription provisioning is only available to an explicitly provisioned admin claim.
 export const setSubscription=call(async r=>{uid(r);assert(r.auth.token.superAdmin===true);const d=r.data;assert(typeof d.active==='boolean'&&Number.isFinite(d.expiresAt));const ref=db.doc(`offices/${text(d.officeId,100)}`);await db.runTransaction(async tx=>{const s=await tx.get(ref);assert(s.exists);tx.update(ref,{active:d.active,expiresAt:d.expiresAt,stoppedAt:d.active?null:(s.data().stoppedAt||Date.now())});});return {ok:true};});
+
+export const adminOffices=call(async r=>{uid(r);assert(r.auth.token.superAdmin===true);const qs=await db.collection('offices').limit(200).get();return {offices:qs.docs.map(s=>({id:s.id,...s.data()}))};});
