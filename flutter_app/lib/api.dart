@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -66,13 +67,28 @@ class Api {
           ? 'image/png'
           : 'image/jpeg';
     }
-    if (bytes == null) throw Exception('تعذر قراءة الملف');
     if (bytes.length > 5 * 1024 * 1024) throw Exception('حجم الملف يتجاوز 5MB');
     if ((camera || image) && context != null) {
       if (!context.mounted) return null;
-      final previewBytes=Uint8List.fromList(bytes);
-      final approved=await showDialog<bool>(context:context,builder:(c)=>AlertDialog(title:const Text('معاينة الصورة'),content:Image.memory(previewBytes,height:280,fit:BoxFit.contain),actions:[TextButton(onPressed:()=>Navigator.pop(c,false),child:const Text('إلغاء')),FilledButton(onPressed:()=>Navigator.pop(c,true),child:const Text('استخدام الصورة'))]));
-      if(approved!=true)return null;
+      final previewBytes = Uint8List.fromList(bytes);
+      final approved = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('معاينة الصورة'),
+          content: Image.memory(previewBytes, height: 280, fit: BoxFit.contain),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('استخدام الصورة'),
+            ),
+          ],
+        ),
+      );
+      if (approved != true) return null;
     }
     final r = await call('uploadFile', {
       'entityId': entity,
