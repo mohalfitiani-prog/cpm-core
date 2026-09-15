@@ -14,10 +14,10 @@ if p.exists():
     lines=p.read_text().splitlines()
 else:
     lines=[]
-lines=[line for line in lines if not line.startswith('FIREBASE_WEB_API_KEY=')]
-lines.append('FIREBASE_WEB_API_KEY='+key[1])
+lines=[line for line in lines if not line.startswith('CPM_WEB_API_KEY=')]
+lines.append('CPM_WEB_API_KEY='+key[1])
 p.write_text('\n'.join(lines)+'\n')
 PY
 npm install --prefix functions --ignore-scripts
 npm test --prefix functions
-npx --yes firebase-tools deploy --project cpm-core --only functions:cpm-flutter
+FUNCTIONS_DISCOVERY_TIMEOUT=60000 npx --yes firebase-tools deploy --project cpm-core --only functions:cpm-flutter

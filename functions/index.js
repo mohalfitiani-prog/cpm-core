@@ -7,7 +7,7 @@ import {defineString} from 'firebase-functions/params';
 import {randomBytes,randomUUID,createHash} from 'node:crypto';
 import {assert,text,member,projectView,mutate,join,readablePaths} from './domain.js';
 initializeApp();
-const db=getFirestore(), auth=getAuth(), apiKey=defineString('FIREBASE_WEB_API_KEY');
+const db=getFirestore(), auth=getAuth(), apiKey=defineString('CPM_WEB_API_KEY');
 const call=fn=>onCall({region:'us-central1',maxInstances:10},async req=>{try{return await fn(req);}catch(e){if(e instanceof HttpsError)throw e;throw new HttpsError('failed-precondition',e.message||'تعذر تنفيذ الطلب');}});
 const uid=r=>{if(!r.auth)throw new HttpsError('unauthenticated','سجّل الدخول');return r.auth.uid;};
 const hash=v=>createHash('sha256').update(v).digest('hex');

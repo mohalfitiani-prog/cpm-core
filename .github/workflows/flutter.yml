@@ -24,6 +24,7 @@ jobs:
           node-version: '22'
       - run: npm install --prefix functions --ignore-scripts
       - run: npm test --prefix functions
+      - run: node tools/smoke-functions.mjs
       - run: bash tools/bootstrap_android.sh
       - run: flutter pub get
         working-directory: flutter_app

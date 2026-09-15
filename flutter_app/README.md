@@ -47,7 +47,7 @@ the CI artifact is debug-signed and might require a separate test device/install
    Do not overwrite rules for other applications without reviewing their compatibility.
 3. Enable Email/Password and Phone providers, provision Firestore and Storage,
    confirm Cloud Functions billing, and configure Android SHA fingerprints for phone verification.
-4. Set `FIREBASE_WEB_API_KEY` for the Functions codebase to the project's public Firebase API key.
+4. Set `CPM_WEB_API_KEY` for the Functions codebase to the project's public Firebase API key.
 5. Install Functions dependencies and deploy the `cpm-flutter` codebase, then reviewed rules.
 6. Register an administrator account, provision its superAdmin claim using
    `node tools/provision-admin.mjs FIREBASE_USER_UID` from an authenticated administrative runtime,

@@ -15,7 +15,7 @@ bash tools/deploy-functions.sh
 
 يسجّل الأمر الأول الدخول إلى حساب Google داخل نافذة المتصفح. لا ترسل كلمة المرور أو رمز الدخول في المحادثة.
 
-السكربت يفحص اسم المشروع، يشغّل اختبارات الخادم، يضبط مفتاح Firebase العام من إعداد أندرويد، ثم ينشر وظائف `cpm-flutter` فقط. قد يطلب Firebase إعداد الخدمات اللازمة أو تفعيل خطة تدعم Cloud Functions؛ راجع أي تغيير فوترة قبل قبوله.
+السكربت يفحص اسم المشروع، يشغّل اختبارات الخادم، يضبط مفتاح Firebase العام في `CPM_WEB_API_KEY` من إعداد أندرويد، ثم ينشر وظائف `cpm-flutter` فقط. قد يطلب Firebase إعداد الخدمات اللازمة أو تفعيل خطة تدعم Cloud Functions؛ راجع أي تغيير فوترة قبل قبوله.
 
 ## قواعد قاعدة البيانات والملفات
 
@@ -41,7 +41,7 @@ npx --yes firebase-tools deploy --project cpm-core --only firestore:rules,storag
 node tools/provision-admin.mjs FIREBASE_USER_UID
 ```
 
-- لوحة الإدارة موجودة في `flutter_app/lib/admin.dart`. تحتاج Firebase Web App ID الخاص بتطبيق **CPM Core Admin** قبل البناء والاستضافة.
+- لوحة الإدارة موجودة في `flutter_app/lib/admin.dart`. معرّف Firebase Web App الخاص بتطبيق **CPM Core Admin** الحالي هو `1:936725772955:web:0945482389d53f8868e43e`؛ مرّره عبر `FIREBASE_WEB_APP_ID` عند البناء.
 - يستطيع مدير النظام تفعيل اشتراك المكتب بعد تسجيل المكتب.
 
 ## ما لم ينفّذه النشر تلقائياً
