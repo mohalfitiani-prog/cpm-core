@@ -392,7 +392,9 @@ class _DashboardState extends State<Dashboard> {
   }
 
   void refresh() {
-    setState(() => future = Api.call('dashboard'));
+    setState(() {
+      future = Api.call('dashboard');
+    });
   }
 
   Future<void> join() async {
