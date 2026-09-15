@@ -12,6 +12,26 @@ const call=fn=>onCall({region:'us-central1',maxInstances:10},async req=>{try{ret
 const uid=r=>{if(!r.auth)throw new HttpsError('unauthenticated','سجّل الدخول');return r.auth.uid;};
 const hash=v=>createHash('sha256').update(v).digest('hex');
 async function active(tx,officeId){const s=await tx.get(db.doc(`offices/${officeId}`));assert(s.exists&&s.data().active&&s.data().expiresAt>Date.now(),'اشتراك المكتب غير فعّال');return s.data();}
+export const validateAccessCode=call(async r=>{
+ const code=text(r.data.code,40).toUpperCase(),key=hash(code),now=Date.now();
+ const [office,invite]=await Promise.all([db.doc(`officeCodes/${key}`).get(),db.doc(`invites/${key}`).get()]);
+ const ov=office.data(),iv=invite.data();
+ assert((office.exists&&ov.status==='active'&&ov.expiresAt>now)||(invite.exists&&iv.status==='active'&&iv.expiresAt>now),'الكود غير صالح أو منتهي');
+ return {valid:true,type:office.exists?'office':'team'};
+});
+
+export const createOfficeCode=call(async r=>{
+ uid(r);assert(r.auth.token.superAdmin===true);
+ const name=text(r.data.name,160),expiresAt=Number(r.data.expiresAt);
+ assert(Number.isFinite(expiresAt)&&expiresAt>Date.now(),'اختر تاريخ انتهاء مستقبلياً');
+ for(let i=0;i<40;i++){
+  const code=String(Math.floor(1000+Math.random()*9000)),ref=db.doc(`officeCodes/${hash(code)}`);
+  const created=await db.runTransaction(async tx=>{const s=await tx.get(ref);if(s.exists)return false;tx.create(ref,{name,expiresAt,status:'active',createdAt:Date.now(),createdBy:r.auth.uid});return true;});
+  if(created)return {code};
+ }
+ throw new Error('تعذر توليد كود فريد، أعد المحاولة');
+});
+
 export const phoneLogin=call(async r=>{
  const phone=text(r.data.phone,30),password=text(r.data.password,200);
  assert(/^\+[1-9]\d{7,14}$/.test(phone),'استخدم رقم الهاتف الدولي');
@@ -23,10 +43,15 @@ export const phoneLogin=call(async r=>{
  }catch{throw new HttpsError('unauthenticated','بيانات الدخول غير صحيحة أو الهاتف غير موثّق');}
 });
 export const provisionProfile=call(async r=>{
- const id=uid(r),d=r.data,ref=db.doc(`profiles/${id}`);
+ const id=uid(r),d=r.data,ref=db.doc(`profiles/${id}`),code=d.accessCode?text(d.accessCode,40).toUpperCase():null;
  return db.runTransaction(async tx=>{const s=await tx.get(ref);if(s.exists)return s.data();
- const profile={uid:id,name:text(d.name,160),phone:text(d.phone,30),address:d.address||'',officeId:d.officeName?id:null};
- tx.create(ref,profile);if(d.officeName)tx.create(db.doc(`offices/${id}`),{name:text(d.officeName,160),owner:id,active:false,expiresAt:0,stoppedAt:Date.now(),logo:null});return profile;});
+  let officeCode=null,codeRef=null;
+  if(code){codeRef=db.doc(`officeCodes/${hash(code)}`);const cs=await tx.get(codeRef);if(cs.exists){officeCode=cs.data();assert(officeCode.status==='active'&&officeCode.expiresAt>Date.now(),'كود المكتب غير صالح أو مستخدم');}}
+  const profile={uid:id,name:text(d.name,160),phone:text(d.phone,30),address:d.address||'',officeId:officeCode?id:null};
+  tx.create(ref,profile);
+  if(officeCode){tx.create(db.doc(`offices/${id}`),{name:officeCode.name,owner:id,active:true,expiresAt:officeCode.expiresAt,stoppedAt:null,logo:null});tx.update(codeRef,{status:'used',usedBy:id,usedAt:Date.now()});}
+  return profile;
+ });
 });
 export const dashboard=call(async r=>{
  const id=uid(r),profile=(await db.doc(`profiles/${id}`).get()).data();assert(profile,'أكمل إنشاء الحساب');
