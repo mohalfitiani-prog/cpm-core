@@ -125,7 +125,47 @@ class _OfficeAdminState extends State<OfficeAdmin> {
   }
 
   void refresh() {
-    setState(() => data = Api.call('adminOffices'));
+    setState(() {
+      data = Api.call('adminOffices');
+    });
+  }
+
+  Future<void> createOfficeCode() async {
+    final d = await form(context, 'إنشاء مكتب وكود تفعيل', {
+      'name': 'اسم المكتب الهندسي',
+      'date': 'تاريخ انتهاء الاشتراك YYYY-MM-DD',
+    });
+    if (d == null) return;
+    try {
+      final date = DateTime.parse(d['date']!);
+      if (!date.isAfter(DateTime.now())) {
+        throw Exception('اختر تاريخاً مستقبلياً');
+      }
+      final result = await Api.call('createOfficeCode', {
+        'name': d['name'],
+        'expiresAt': date.millisecondsSinceEpoch,
+      });
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('تم إنشاء كود المكتب'),
+          content: SelectableText(
+            result['code'],
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('تم'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) error(context, e);
+    }
   }
 
   Future<void> activateSubscription(dynamic office) async {
@@ -183,6 +223,11 @@ class _OfficeAdminState extends State<OfficeAdmin> {
     appBar: AppBar(
       title: const Text('اشتراكات المكاتب'),
       actions: [
+        IconButton(
+          onPressed: createOfficeCode,
+          tooltip: 'إنشاء مكتب وكود تفعيل',
+          icon: const Icon(Icons.add_business),
+        ),
         IconButton(onPressed: refresh, icon: const Icon(Icons.refresh)),
         IconButton(
           onPressed: () => Api.auth.signOut(),
