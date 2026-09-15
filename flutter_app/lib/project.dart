@@ -44,7 +44,9 @@ class _ProjectPageState extends State<ProjectPage> {
   }
 
   void refresh() {
-    setState(() => future = Api.call('getProject', {'projectId': widget.id}));
+    setState(() {
+      future = Api.call('getProject', {'projectId': widget.id});
+    });
   }
 
   Future<void> run(Future<void> Function() f) async {
