@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
 import 'firebase_options.dart';
@@ -45,14 +46,7 @@ class CpmApp extends StatelessWidget {
       ),
       appBarTheme: const AppBarTheme(centerTitle: false),
     ),
-    home: StreamBuilder<User?>(
-      stream: Api.auth.authStateChanges(),
-      builder: (c, s) => s.connectionState == ConnectionState.waiting
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : s.data == null
-          ? const LoginPage()
-          : const Dashboard(),
-    ),
+    home: const ActivationGate(),
   );
 }
 
@@ -143,6 +137,120 @@ Future<Map<String, String>?> form(
     for (final v in controllers.values) v.dispose();
   });
   return result;
+}
+
+class ActivationGate extends StatefulWidget {
+  const ActivationGate({super.key});
+  @override
+  State<ActivationGate> createState() => _ActivationGateState();
+}
+
+class _ActivationGateState extends State<ActivationGate> {
+  late Future<bool> activated;
+  @override
+  void initState() {
+    super.initState();
+    activated = SharedPreferences.getInstance()
+        .then((p) => p.getBool('cpmDeviceActivated') ?? false);
+  }
+
+  void complete() => setState(() {
+    activated = Future.value(true);
+  });
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<bool>(
+    future: activated,
+    builder: (context, activation) {
+      if (!activation.hasData) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      if (activation.data != true) return AccessCodePage(onAccepted: complete);
+      return StreamBuilder<User?>(
+        stream: Api.auth.authStateChanges(),
+        builder: (context, auth) => auth.connectionState == ConnectionState.waiting
+            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+            : auth.data == null
+                ? const LoginPage()
+                : const Dashboard(),
+      );
+    },
+  );
+}
+
+class AccessCodePage extends StatefulWidget {
+  final VoidCallback onAccepted;
+  const AccessCodePage({super.key, required this.onAccepted});
+  @override
+  State<AccessCodePage> createState() => _AccessCodePageState();
+}
+
+class _AccessCodePageState extends State<AccessCodePage> {
+  final code = TextEditingController();
+  bool busy = false;
+  @override
+  void dispose() {
+    code.dispose();
+    super.dispose();
+  }
+
+  Future<void> verify() async {
+    final value = code.text.trim().toUpperCase();
+    if (value.isEmpty) return;
+    setState(() => busy = true);
+    try {
+      await Api.call('validateAccessCode', {'code': value});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cpmPendingAccessCode', value);
+      await prefs.setBool('cpmDeviceActivated', true);
+      widget.onAccepted();
+    } catch (e) {
+      if (mounted) error(context, e);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Card(
+          margin: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.apartment, size: 58, color: Color(0xff143d59)),
+                const SizedBox(height: 18),
+                const Text('CPM Core', textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 28),
+                TextField(
+                  controller: code,
+                  textAlign: TextAlign.center,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'كود المكتب أو الفريق',
+                    hintText: 'أدخل الكود المولّد مسبقاً',
+                  ),
+                  onSubmitted: (_) => verify(),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: busy ? null : verify,
+                  child: Text(busy ? 'جارٍ التحقق…' : 'متابعة'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class LoginPage extends StatefulWidget {
@@ -286,11 +394,10 @@ class _RegisterPageState extends State<RegisterPage> {
       'phone',
       'address',
       'password',
-      'officeName',
     ])
       k: TextEditingController(),
   };
-  bool office = false, busy = false;
+  bool busy = false;
   @override
   void dispose() {
     for (final c in fields.values) c.dispose();
@@ -321,16 +428,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   decoration: InputDecoration(labelText: e.value),
                 ),
               ),
-            SwitchListTile(
-              title: const Text('تسجيل مكتب هندسي'),
-              value: office,
-              onChanged: busy ? null : (v) => setState(() => office = v),
-            ),
-            if (office)
-              TextField(
-                controller: fields['officeName'],
-                decoration: const InputDecoration(labelText: 'اسم المكتب'),
-              ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: busy
@@ -347,20 +444,19 @@ class _RegisterPageState extends State<RegisterPage> {
                           if (fields[k]!.text.trim().isEmpty)
                             throw Exception('أكمل الحقول المطلوبة');
                         }
-                        if (office && fields['officeName']!.text.trim().isEmpty)
-                          throw Exception('أدخل اسم المكتب');
                         await Api.auth.createUserWithEmailAndPassword(
                           email: fields['email']!.text.trim(),
                           password: fields['password']!.text,
                         );
+                        final prefs = await SharedPreferences.getInstance();
+                        final accessCode = prefs.getString('cpmPendingAccessCode');
                         await Api.call('provisionProfile', {
                           'name': fields['name']!.text.trim(),
                           'phone': fields['phone']!.text.trim(),
                           'address': fields['address']!.text.trim(),
-                          'officeName': office
-                              ? fields['officeName']!.text.trim()
-                              : null,
+                          'accessCode': accessCode,
                         });
+                        await prefs.remove('cpmPendingAccessCode');
                         if (context.mounted) Navigator.pop(context);
                       } catch (e) {
                         if (context.mounted) error(context, e);
